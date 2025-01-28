@@ -72,9 +72,22 @@ class DevProGUI:
         """
         Process voice input from the user.
         """
-        self.display_message("System", "Listening...")
-        voice_data = self.record_audio_function()
-        self.process_command(voice_data)
+        try:
+            self.voice_button.config(state='disabled')  # Disable button while listening
+            self.display_message("System", "🎤 Listening... Please speak now")
+            self.root.update()  # Force GUI update
+            
+            voice_data = self.record_audio_function()
+            
+            if voice_data and voice_data.strip():
+                self.display_message("You", voice_data)
+                self.process_command(voice_data)
+            else:
+                self.display_message("System", "❌ No speech detected. Please try again.")
+        except Exception as e:
+            self.display_message("System", f"❌ Error: {str(e)}")
+        finally:
+            self.voice_button.config(state='normal')  # Re-enable button
 
     def process_command(self, command):
         """
