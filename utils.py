@@ -11,23 +11,25 @@ from weather import speak_weather
 
 def record_audio(ask=False):
     r = sr.Recognizer()
+    r.dynamic_energy_threshold = True
+    r.energy_threshold = 4000  # Adjust this value based on your microphone
+    
     with sr.Microphone() as source:
+        r.adjust_for_ambient_noise(source, duration=0.5)  # Adjust for background noise
         if ask:
             speak(ask)
-        print("Listening...")
-        audio = r.listen(source)
-        voice_data = ''
         try:
+            audio = r.listen(source, timeout=5, phrase_time_limit=5)
             voice_data = r.recognize_google(audio)
-            print(f"Recognized: {voice_data}")
+            return voice_data.lower()
+        except sr.WaitTimeoutError:
+            return "Timeout: No speech detected"
         except sr.UnknownValueError:
-            speak('Sorry I did not understand, Kindly Rephrase your question')
-            print("Could not understand audio")
+            return "Could not understand audio"
         except sr.RequestError:
-            speak('Sorry, I am Down')
-            print("Could not request results from Google Speech Recognition service")
-        print(f">> {voice_data.lower()}")
-        return voice_data.lower()
+            return "Could not connect to speech recognition service"
+        except Exception as e:
+            return f"Error: {str(e)}"
 
 def speak(audio_string):
     tts = gTTS(text=audio_string, lang='en')
@@ -116,3 +118,14 @@ def respond(voice_data, person_obj):
 
     # Log the conversation
     log_conversation(voice_data, "Assistant response logged.")
+
+def test_microphone():
+    try:
+        r = sr.Recognizer()
+        with sr.Microphone() as source:
+            print("Testing microphone...")
+            r.adjust_for_ambient_noise(source, duration=1)
+            return True
+    except Exception as e:
+        print(f"Microphone test failed: {str(e)}")
+        return False
