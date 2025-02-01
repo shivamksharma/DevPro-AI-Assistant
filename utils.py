@@ -7,38 +7,74 @@ import webbrowser
 import yfinance as yf
 import requests
 from datetime import datetime
+import logging
 from weather import speak_weather
+import tempfile
 
-def record_audio(ask=False):
+def record_audio(ask=False, max_retries=2):
     r = sr.Recognizer()
     r.dynamic_energy_threshold = True
-    r.energy_threshold = 4000  # Adjust this value based on your microphone
+    r.energy_threshold = 2000  # Lowered from 3000
+    r.pause_threshold = 1.0    # Increased from 0.8
+    r.non_speaking_duration = 0.7  # Increased from 0.5
     
-    with sr.Microphone() as source:
-        r.adjust_for_ambient_noise(source, duration=0.5)  # Adjust for background noise
-        if ask:
-            speak(ask)
+    for attempt in range(max_retries + 1):
         try:
-            audio = r.listen(source, timeout=5, phrase_time_limit=5)
-            voice_data = r.recognize_google(audio)
-            return voice_data.lower()
+            with sr.Microphone() as source:
+                logging.info(f"Attempt {attempt + 1}/{max_retries + 1}: Adjusting for ambient noise...")
+                r.adjust_for_ambient_noise(source, duration=2)  # Increased duration
+                
+                if ask:
+                    speak(ask)
+                
+                logging.info("Listening...")
+                audio = r.listen(source, timeout=10, phrase_time_limit=10)  # Increased timeouts
+                
+                logging.info("Recognizing speech...")
+                voice_data = r.recognize_google(audio)
+                logging.info(f"Recognized: {voice_data}")
+                
+                return voice_data.lower()
+                
         except sr.WaitTimeoutError:
-            return "Timeout: No speech detected"
+            if attempt < max_retries:
+                logging.warning(f"Timeout on attempt {attempt + 1}. Retrying...")
+                continue
+            return "Timeout: No speech detected. Please try again."
         except sr.UnknownValueError:
-            return "Could not understand audio"
-        except sr.RequestError:
-            return "Could not connect to speech recognition service"
+            if attempt < max_retries:
+                logging.warning(f"Could not understand speech on attempt {attempt + 1}. Retrying...")
+                continue
+            return "Sorry, I couldn't understand that. Please try again."
+        except sr.RequestError as e:
+            logging.error(f"Could not connect to speech recognition service: {str(e)}")
+            return f"Could not connect to speech recognition service. Error: {str(e)}"
         except Exception as e:
-            return f"Error: {str(e)}"
+            logging.error(f"Error in record_audio: {str(e)}")
+            return f"An error occurred: {str(e)}"
 
 def speak(audio_string):
-    tts = gTTS(text=audio_string, lang='en')
-    r = random.randint(1, 20000000)
-    audio_file = 'audio' + str(r) + '.mp3'
-    tts.save(audio_file)
-    playsound.playsound(audio_file)
-    print(f"devpro: {audio_string}")
-    os.remove(audio_file)
+    try:
+        # Create a temporary directory for audio files if it doesn't exist
+        temp_dir = os.path.join(tempfile.gettempdir(), 'devpro_audio')
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        # Generate audio file
+        tts = gTTS(text=audio_string, lang='en')
+        audio_file = os.path.join(temp_dir, f'audio_{random.randint(1, 20000000)}.mp3')
+        
+        # Save and play
+        tts.save(audio_file)
+        playsound.playsound(audio_file)
+        
+        # Clean up
+        os.remove(audio_file)
+        
+        logging.info(f"TTS: {audio_string}")
+        
+    except Exception as e:
+        logging.error(f"Error in text-to-speech: {str(e)}")
+        print(f"DevPro: {audio_string}")  # Fallback to text-only output
 
 def there_exists(terms, voice_data):
     for term in terms:
@@ -120,12 +156,27 @@ def respond(voice_data, person_obj):
     log_conversation(voice_data, "Assistant response logged.")
 
 def test_microphone():
+    """Test microphone and audio setup."""
     try:
+        logging.info("Testing microphone...")
         r = sr.Recognizer()
         with sr.Microphone() as source:
-            print("Testing microphone...")
-            r.adjust_for_ambient_noise(source, duration=1)
+            logging.info("Adjusting for ambient noise...")
+            r.adjust_for_ambient_noise(source, duration=2)
+            
+            # Try to record a short sample to verify microphone is working
+            logging.info("Recording short test sample...")
+            audio = r.listen(source, timeout=3, phrase_time_limit=3)
+            
+            # Try to recognize the audio (even if no words were spoken)
+            try:
+                r.recognize_google(audio)
+            except sr.UnknownValueError:
+                # This is expected if no words were spoken
+                pass
+            
+            logging.info("Microphone test successful")
             return True
     except Exception as e:
-        print(f"Microphone test failed: {str(e)}")
+        logging.error(f"Microphone test failed: {str(e)}")
         return False
