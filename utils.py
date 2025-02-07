@@ -153,8 +153,8 @@ def respond(voice_data, person_obj):
         speak_weather(city, speak)
 
     if there_exists(["exit", "quit", "goodbye"], voice_data):
-        speak("going offline")
-        exit()
+        speak("Shutting down system")
+        os._exit(0)  # Force clean exit
 
     # Log the conversation
     log_conversation(voice_data, "Assistant response logged.")
