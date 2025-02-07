@@ -11,12 +11,12 @@ import logging
 from weather import speak_weather
 import tempfile
 
-def record_audio(ask=False, max_retries=2):
+def record_audio(ask=False, max_retries=3):
     r = sr.Recognizer()
     r.dynamic_energy_threshold = True
-    r.energy_threshold = 2000  # Lowered from 3000
-    r.pause_threshold = 1.0    # Increased from 0.8
-    r.non_speaking_duration = 0.7  # Increased from 0.5
+    r.energy_threshold = 4000  # Optimized for different environments
+    r.pause_threshold = 0.8
+    r.non_speaking_duration = 0.3
     
     for attempt in range(max_retries + 1):
         try:
@@ -28,7 +28,7 @@ def record_audio(ask=False, max_retries=2):
                     speak(ask)
                 
                 logging.info("Listening...")
-                audio = r.listen(source, timeout=10, phrase_time_limit=10)  # Increased timeouts
+                audio = r.listen(source, timeout=5, phrase_time_limit=7)
                 
                 logging.info("Recognizing speech...")
                 voice_data = r.recognize_google(audio)
