@@ -89,6 +89,11 @@ class DevProGUI:
         )
         self.exit_button.pack(side=tk.RIGHT, padx=5)
         
+        # Add continuous listening checkbox
+        self.continuous_listening_var = tk.BooleanVar()
+        ttk.Checkbutton(button_frame, text="Continuous Listen", 
+                       variable=self.continuous_listening_var).pack(side=tk.LEFT)
+        
         # Initial greeting
         self.display_message("System", "👋 Welcome to DevPro AI Assistant! Click the microphone button or type to begin.")
     
