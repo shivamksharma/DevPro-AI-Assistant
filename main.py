@@ -4,6 +4,7 @@ from tkinter import messagebox
 import logging
 from gui import DevProGUI
 from utils import respond, record_audio, speak, test_microphone
+from wake_word import listen_for_wake_word
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
@@ -26,6 +27,10 @@ def main():
         if not test_microphone():
             logging.error("Microphone not working or not properly configured")
             raise Exception("Microphone test failed. Please check your microphone settings.")
+        
+        # Add wake word detection before GUI starts
+        if not listen_for_wake_word("devpro", record_audio):
+            messagebox.showwarning("Wake Word Required", "Say 'DevPro' to activate")
         
         # Initialize the GUI
         logging.info("Initializing GUI...")
