@@ -4,6 +4,7 @@ import threading
 import logging
 from utils import respond, record_audio, speak
 import time
+import concurrent.futures
 
 class DevProGUI:
     def __init__(self, root, respond_function, record_audio_function, speak_function, person_obj):
@@ -153,7 +154,10 @@ class DevProGUI:
         """Process the command and display the assistant's response."""
         try:
             self.display_message("System", "🤔 Processing...")
-            self.respond_function(command, self.person_obj, self.speak)
+            # Use ThreadPoolExecutor for better resource management
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(self.respond_function, command, self.person_obj, self.speak)
+                future.add_done_callback(self.handle_response)
         except Exception as e:
             logging.error(f"Error processing command: {str(e)}")
             self.display_message("System", f"❌ Error processing command: {str(e)}")
