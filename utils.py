@@ -10,6 +10,7 @@ from datetime import datetime
 import logging
 from weather import speak_weather
 import tempfile
+import hashlib
 
 def record_audio(ask=False, max_retries=3):
     r = sr.Recognizer()
@@ -59,12 +60,15 @@ def speak(audio_string):
         temp_dir = os.path.join(tempfile.gettempdir(), 'devpro_audio')
         os.makedirs(temp_dir, exist_ok=True)
         
-        # Generate audio file
-        tts = gTTS(text=audio_string, lang='en')
-        audio_file = os.path.join(temp_dir, f'audio_{random.randint(1, 20000000)}.mp3')
+        # Create hash-based filename for caching
+        audio_hash = hashlib.md5(audio_string.encode()).hexdigest()
+        audio_file = os.path.join(temp_dir, f'{audio_hash}.mp3')
+        
+        if not os.path.exists(audio_file):
+            tts = gTTS(text=audio_string, lang='en')
+            tts.save(audio_file)
         
         # Save and play
-        tts.save(audio_file)
         playsound.playsound(audio_file)
         
         # Clean up
