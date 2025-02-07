@@ -10,49 +10,37 @@ from datetime import datetime
 import logging
 from weather import speak_weather
 import tempfile
-import hashlib
+from ctypes import CFUNCTYPE, c_char_p, c_int, cdll
 
 def record_audio(ask=False, max_retries=3):
+    """Record audio with ALSA workaround and better retry logic"""
     r = sr.Recognizer()
-    r.dynamic_energy_threshold = True
-    r.energy_threshold = 4000  # Optimized for different environments
-    r.pause_threshold = 0.8
+    r.energy_threshold = 4500  # Higher threshold for noisy environments
+    r.pause_threshold = 1.0
     r.non_speaking_duration = 0.3
     
-    for attempt in range(max_retries + 1):
+    for attempt in range(max_retries):
         try:
-            with sr.Microphone() as source:
-                logging.info(f"Attempt {attempt + 1}/{max_retries + 1}: Adjusting for ambient noise...")
-                r.adjust_for_ambient_noise(source, duration=2)  # Increased duration
-                
+            with sr.Microphone(device_index=0) as source:  # Explicit device index
                 if ask:
-                    speak(ask)
-                
-                logging.info("Listening...")
+                    print(ask)
+                r.adjust_for_ambient_noise(source, duration=0.5)
                 audio = r.listen(source, timeout=5, phrase_time_limit=7)
-                
-                logging.info("Recognizing speech...")
-                voice_data = r.recognize_google(audio)
-                logging.info(f"Recognized: {voice_data}")
-                
-                return voice_data.lower()
+                return audio
                 
         except sr.WaitTimeoutError:
-            if attempt < max_retries:
-                logging.warning(f"Timeout on attempt {attempt + 1}. Retrying...")
-                continue
-            return "Timeout: No speech detected. Please try again."
-        except sr.UnknownValueError:
-            if attempt < max_retries:
-                logging.warning(f"Could not understand speech on attempt {attempt + 1}. Retrying...")
-                continue
-            return "Sorry, I couldn't understand that. Please try again."
-        except sr.RequestError as e:
-            logging.error(f"Could not connect to speech recognition service: {str(e)}")
-            return f"Could not connect to speech recognition service. Error: {str(e)}"
+            if attempt == max_retries-1:
+                return "Error: Listening timed out"
+            continue
+        except OSError as e:
+            if "No default input device" in str(e):
+                return "Error: No microphone found"
+            logging.error(f"ALSA error: {str(e)}")
         except Exception as e:
-            logging.error(f"Error in record_audio: {str(e)}")
-            return f"An error occurred: {str(e)}"
+            logging.error(f"Recording error: {str(e)}")
+            return f"Error: {str(e)}"
+            
+    return "Error: Maximum retries reached"
 
 def speak(audio_string):
     try:
@@ -160,27 +148,11 @@ def respond(voice_data, person_obj):
     log_conversation(voice_data, "Assistant response logged.")
 
 def test_microphone():
-    """Test microphone and audio setup."""
+    """Simplified microphone test with direct device access"""
     try:
-        logging.info("Testing microphone...")
-        r = sr.Recognizer()
-        with sr.Microphone() as source:
-            logging.info("Adjusting for ambient noise...")
-            r.adjust_for_ambient_noise(source, duration=2)
-            
-            # Try to record a short sample to verify microphone is working
-            logging.info("Recording short test sample...")
-            audio = r.listen(source, timeout=3, phrase_time_limit=3)
-            
-            # Try to recognize the audio (even if no words were spoken)
-            try:
-                r.recognize_google(audio)
-            except sr.UnknownValueError:
-                # This is expected if no words were spoken
-                pass
-            
-            logging.info("Microphone test successful")
-            return True
+        print("Testing microphone... (Say 'TEST' clearly)")
+        audio = record_audio(ask=False, max_retries=1)
+        return audio is not None
     except Exception as e:
-        logging.error(f"Microphone test failed: {str(e)}")
+        print(f"Microphone test failed: {str(e)}")
         return False

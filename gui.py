@@ -159,13 +159,15 @@ class DevProGUI:
         """Process the command and display the assistant's response."""
         try:
             self.display_message("System", "🤔 Processing...")
-            # Use ThreadPoolExecutor for better resource management
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(self.respond_function, command, self.person_obj, self.speak)
-                future.add_done_callback(self.handle_response)
+            # Use proper threading with error handling
+            threading.Thread(
+                target=self.respond_function,
+                args=(command, self.person_obj, self.speak),
+                daemon=True
+            ).start()
         except Exception as e:
             logging.error(f"Error processing command: {str(e)}")
-            self.display_message("System", f"❌ Error processing command: {str(e)}")
+            self.display_message("System", f"❌ Error: {str(e)}")
     
     def speak(self, audio_string):
         """Override the speak function to display the response in the GUI."""
@@ -179,3 +181,12 @@ class DevProGUI:
         """Handle exit button click."""
         if messagebox.askokcancel("Quit", "Do you want to quit?"):
             self.root.quit()
+    
+    def handle_response(self, future):
+        """Handle the response from the thread pool"""
+        try:
+            response = future.result()
+            self.display_message("Assistant", response)
+        except Exception as e:
+            logging.error(f"Response error: {str(e)}")
+            self.display_message("System", f"❌ Error: {str(e)}")
