@@ -1,0 +1,8 @@
+SpeechRecognition
+gTTS
+playsound==1.2.2
+PyAudio
+wikipedia
+beautifulsoup4
+requests
+pywhatkit
